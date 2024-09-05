@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Next Word Prediction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #container {
+            text-align: center;
+            width: 80%;
+        }
+        #text-box {
+            width: 80%;
+            padding: 10px;
+            font-size: 18px;
+            background-color: #2b2b2b;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+        #predictions {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .prediction {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.3s;
+            color: #000000;
+        }
+        .prediction:hover {
+            transform: scale(1.1);
+        }
+        .highest-prob {
+            background-color: #a8e6a3; /* Light Green */
+        }
+        .second-highest-prob {
+            background-color: #fff8a3; /* Light Yellow */
+        }
+        .least-prob {
+            background-color: #f5a3a3; /* Light Red */
+        }
+        #clear-button, #stop-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #424242;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        #clear-button:hover, #stop-button:hover {
+            background-color: #616161;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>Next Word Prediction</h1>
+        <input type="text" id="text-box" onkeyup="checkForSpace(event)" placeholder="Type your sentence here...">
+        <div id="predictions"></div>
+        <button id="clear-button" onclick="clearText()">Clear</button>
+        <button id="stop-button">Stop</button>
+    </div>
+
+    <script>
+        async function getPredictions(text) {
+            const response = await fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data;
+            } else {
+                const errorText = await response.text();
+                console.error('Error:', errorText);
+                throw new Error(errorText);
+            }
+        }
+
+        function checkForSpace(event) {
+            if (event.key === ' ') {
+                event.preventDefault(); // Prevent adding an extra space
+                predictNextWord();
+            }
+        }
+
+        function predictNextWord() {
+            const textBox = document.getElementById('text-box');
+            const text = textBox.value.trim();
+            if (text) {
+                getPredictions(text).then(predictions => {
+                    const predictionsDiv = document.getElementById('predictions');
+                    predictionsDiv.innerHTML = '';
+                    if (predictions.error) {
+                        predictionsDiv.innerText = `Error: ${predictions.error}`;
+                    } else {
+                        predictions.forEach((prediction, index) => {
+                            const [word, prob] = prediction;
+                            const div = document.createElement('div');
+                            div.className = 'prediction';
+                            div.innerText = word;
+                            if (index === 0) {
+                                div.classList.add('highest-prob');
+                            } else if (index === 1) {
+                                div.classList.add('second-highest-prob');
+                            } else {
+                                div.classList.add('least-prob');
+                            }
+                            div.onclick = () => {
+                                // Append the predicted word without adding an extra space
+                                textBox.value = textBox.value.trim() + ' ' + word;
+                                predictionsDiv.innerHTML = '';
+                                textBox.focus();
+                                textBox.setSelectionRange(textBox.value.length, textBox.value.length);
+                            };
+                            predictionsDiv.appendChild(div);
+                        });
+                    }
+                }).catch(error => {
+                    console.error('Error during prediction:', error);
+                });
+            }
+        }
+
+        function clearText() {
+            document.getElementById('text-box').value = '';
+            document.getElementById('predictions').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
